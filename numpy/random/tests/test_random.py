@@ -389,6 +389,13 @@ class TestRandomDist(object):
         desired = np.array(['c', 'd', 'c', 'd'])
         assert_array_equal(actual, desired)
 
+    def test_choice_multidimensional_custom_axis(self):
+        np.random.seed(self.seed)
+        actual = np.random.choice([[0, 1], [2, 3], [4, 5], [6, 7]], 1,
+                                  axis=1, replace=False)
+        desired = np.array([[0], [2], [4], [6]])
+        assert_array_equal(actual, desired)
+
     def test_choice_exceptions(self):
         sample = np.random.choice
         assert_raises(ValueError, sample, -1, 3)
