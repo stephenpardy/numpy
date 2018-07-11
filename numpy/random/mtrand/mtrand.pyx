@@ -1029,9 +1029,9 @@ cdef class RandomState:
         return bytestring
 
 
-    def choice(self, a, size=None, replace=True, p=None):
+    def choice(self, a, size=None, replace=True, p=None, axis=None):
         """
-        choice(a, size=None, replace=True, p=None)
+        choice(a, size=None, replace=True, p=None, axis=None)
 
         Generates a random sample from a given 1-D array
 
@@ -1039,9 +1039,10 @@ cdef class RandomState:
 
         Parameters
         -----------
-        a : 1-D array-like or int
+        a : N-D array-like or int
             If an ndarray, a random sample is generated from its elements.
             If an int, the random sample is generated as if a were np.arange(a)
+            If axis is None this must be 1-D.
         size : int or tuple of ints, optional
             Output shape.  If the given shape is, e.g., ``(m, n, k)``, then
             ``m * n * k`` samples are drawn.  Default is None, in which case a
@@ -1052,6 +1053,11 @@ cdef class RandomState:
             The probabilities associated with each entry in a.
             If not given the sample assumes a uniform distribution over all
             entries in a.
+            If `axis` is given, then `p` must be the same size as `a` along that axis.
+        axis : int, optional
+            Which axis of a multi-dimensional array to choose sample from.
+            If -1, will flatten the multi-dimensional array first. Positive values will
+            use np.take(a, <choices>, axis=axis).
 
         Returns
         --------
@@ -1061,7 +1067,7 @@ cdef class RandomState:
         Raises
         -------
         ValueError
-            If a is an int and less than zero, if a or p are not 1-dimensional,
+            If a is an int and less than zero, if a or p do not have the same dimensions,
             if a is an array-like of size 0, if p is not a vector of
             probabilities, if a and p have different lengths, or if
             replace=False and the sample size is greater than the population
@@ -1109,6 +1115,7 @@ cdef class RandomState:
 
         # Format and Verify input
         a = np.array(a, copy=False)
+        # a is a single number
         if a.ndim == 0:
             try:
                 # __index__ must return an integer by python rules.
@@ -1118,7 +1125,17 @@ cdef class RandomState:
             if pop_size <= 0 and np.prod(size) != 0:
                 raise ValueError("'a' must be greater than 0 unless no samples are taken")
         elif a.ndim != 1:
-            raise ValueError("'a' must be 1-dimensional")
+            if axis is None:
+                raise ValueError("'a' must be 1-dimensional or you must choose an axis.")
+
+            if axis < 0:
+                pop_size = np.prod(a.shape)
+            else:
+                pop_size = a.shape[axis]
+
+            if pop_size is 0 and np.prod(size) != 0:
+                raise ValueError("'a' cannot be empty along chosen dimension unless no samples are taken")
+
         else:
             pop_size = a.shape[0]
             if pop_size is 0 and np.prod(size) != 0:
@@ -1144,6 +1161,7 @@ cdef class RandomState:
             if abs(kahan_sum(pix, d) - 1.) > atol:
                 raise ValueError("probabilities do not sum to 1")
 
+        # how many samples to choose
         shape = size
         if shape is not None:
             size = np.prod(shape, dtype=np.intp)
@@ -1199,6 +1217,10 @@ cdef class RandomState:
             return idx
 
         if shape is not None and idx.ndim == 0:
+            
+            if a.ndim != 1:
+                raise ValueError("'a' must be 1-dimensional if size==()")
+
             # If size == () then the user requested a 0-d array as opposed to
             # a scalar object when size is None. However a[idx] is always a
             # scalar and not an array. So this makes sure the result is an
@@ -1207,6 +1229,12 @@ cdef class RandomState:
             res = np.empty((), dtype=a.dtype)
             res[()] = a[idx]
             return res
+
+        if axis is not None:
+            if axis < 0:
+                return a.ravel()[idx]
+
+            return np.take(a, idx, axis=axis)
 
         return a[idx]
 
