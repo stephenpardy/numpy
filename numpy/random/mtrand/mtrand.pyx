@@ -1067,7 +1067,9 @@ cdef class RandomState:
         Raises
         -------
         ValueError
-            If a is an int and less than zero, if a or p do not have the same dimensions,
+            If a is an int and less than zero, if p is not 1 dimensional,
+            if a is not 1 dimensional and the axis keyword is not set
+            or the given axis is larger than the number of dimensions,
             if a is an array-like of size 0, if p is not a vector of
             probabilities, if a and p have different lengths, or if
             replace=False and the sample size is greater than the population
@@ -1127,6 +1129,9 @@ cdef class RandomState:
         elif a.ndim != 1:
             if axis is None:
                 raise ValueError("'a' must be 1-dimensional or you must choose an axis.")
+
+            if axis >= a.ndim:
+                raise ValueError("Given axis is out of range for input with ndim {:d}".format(a.ndim))
 
             if axis < 0:
                 pop_size = np.prod(a.shape)
